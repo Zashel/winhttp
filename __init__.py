@@ -35,7 +35,6 @@ class Requests:
         self.patch = partial(self.request, "PATCH")
         self.head = partial(self.request, "HEAD")
         self._parser = HTMLParser
-
         self.token = None
         self.scopes = None
         self.secrets = None

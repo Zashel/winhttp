@@ -59,6 +59,7 @@ class Requests:
         self.token = None
         self.scopes = None
         self._a94c279b0e1a4c55a0e5d27252a35187 = None
+        self._9f84809956a94ec185202d2d0caf7923 = None
         self.openidtoken = None
         self.uuid = None
 
@@ -115,10 +116,10 @@ class Requests:
 
     @property
     def secrets(self):
-        password = self._password
-        self._password = str(uuid4().hex)
+        password = self._9f84809956a94ec185202d2d0caf7923
+        self._9f84809956a94ec185202d2d0caf7923 = str(uuid4().hex)
         secrets = object.__getattribute__(self, "_a94c279b0e1a4c55a0e5d27252a35187")
-        self.secrets = encode(self._password, decode(password, secrets))
+        self.secrets = encode(self._9f84809956a94ec185202d2d0caf7923, decode(password, secrets))
         return secrets
 
     @secrets.setter
@@ -198,7 +199,7 @@ class Requests:
                 return
         else:
             shelf.close()
-            password = self._password
+            password = self._9f84809956a94ec185202d2d0caf7923
             secret = js.loads(decode(password, self.secrets))
             self.post(secret["token_uri"], data={"client_id": secret["client_id"],
                                                        "client_secret": secret["client_secret"],
@@ -236,8 +237,8 @@ class Requests:
         assert(all([item in data for item in keys]))
         self.scopes = scopes
         self.secret_file = json_file
-        self._password = str(uuid4().hex)
-        self.secrets = encode(self._password, js.dumps(data))
+        self._9f84809956a94ec185202d2d0caf7923 = str(uuid4().hex)
+        self.secrets = encode(self._9f84809956a94ec185202d2d0caf7923, js.dumps(data))
         if token is None:
             token = os.path.join(LOCALPATH, data["client_id"])
         self.token = token

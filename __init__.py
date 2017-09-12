@@ -12,6 +12,7 @@ import time
 import win32gui
 import webbrowser
 import dbm
+import base64
 from comtypes import COMError
 from functools import partial
 from html.parser import HTMLParser
@@ -20,6 +21,26 @@ from uuid import UUID, uuid4
 IID_IStream = ctypes.c_buffer(UUID("{0000000C-0000-0000-C000-000000000046}").bytes_le)
 
 LOCALPATH = os.path.join(os.environ["LOCALAPPDATA"], "zashel", "winhttp")
+
+
+def encode(key, clear):
+    enc = []
+    for i in range(len(clear)):
+        key_c = key[i % len(key)]
+        enc_c = (ord(clear[i]) + ord(key_c)) % 256
+        enc.append(enc_c)
+    return base64.urlsafe_b64encode(bytes(enc))
+
+
+def decode(key, enc):
+    dec = []
+    enc = base64.urlsafe_b64decode(enc)
+    for i in range(len(enc)):
+        key_c = key[i % len(key)]
+        dec_c = chr((256 + enc[i] - ord(key_c)) % 256)
+        dec.append(dec_c)
+    return "".join(dec)
+
 
 class NotAuthorised(Exception):
     pass
@@ -37,7 +58,7 @@ class Requests:
         self._parser = HTMLParser
         self.token = None
         self.scopes = None
-        self.secrets = None
+        self._a94c279b0e1a4c55a0e5d27252a35187 = None
         self.openidtoken = None
         self.uuid = None
 
@@ -91,6 +112,18 @@ class Requests:
             return self._req.Option(1)
         except COMError:
             return None
+
+    @property
+    def secrets(self):
+        password = self._password
+        self._password = str(uuid4().hex)
+        secrets = object.__getattribute__(self, "_a94c279b0e1a4c55a0e5d27252a35187")
+        self.secrets = encode(self._password, decode(password, secrets))
+        return secrets
+
+    @secrets.setter
+    def secrets(self, value):
+        object.__setattr__(self, "_a94c279b0e1a4c55a0e5d27252a35187", value)
 
     def request(self, method, url, *, data=None, json=None, headers=None, get=None):
         requested = ([method, url], {"data": data, "json": json, "headers": headers, "get": get})
@@ -153,6 +186,7 @@ class Requests:
 
     def refresh_token(self, requested):
         shelf = shelve.open(self.token)
+        secret = None
         try:
             token = shelf["refresh_token"]
         except KeyError:
@@ -164,8 +198,10 @@ class Requests:
                 return
         else:
             shelf.close()
-            self.post(self.secrets["token_uri"], data={"client_id": self.secrets["client_id"],
-                                                       "client_secret": self.secrets["client_secret"],
+            password = self._password
+            secret = js.loads(decode(password, self.secrets))
+            self.post(secret["token_uri"], data={"client_id": secret["client_id"],
+                                                       "client_secret": secret["client_secret"],
                                                        "refresh_token": token,
                                                        "grant_type": "refresh_token"})
             shelf = shelve.open(self.token)
@@ -174,7 +210,7 @@ class Requests:
         self.request(*requested[0], **requested[1])
         if self.token is not None and self.status_code in [401]:
             self.token = None
-            ok = self.oauth2(self.scopes, self.secret_file)
+            ok = self.oauth2(self.scopes, secret_data=secret)
             if ok is not None:
                 return self.request(*requested[0], **requested[1])
         else:
@@ -182,14 +218,16 @@ class Requests:
         if os.path.exists(self.token):
             os.remove(self.token)
 
-    def oauth2(self, scopes, json_file, *, token=None):
-        assert os.path.exists(json_file)
+    def oauth2(self, scopes, *, json_file=None, token=None, secret_data=None):
+        if json_file is not None:
+            assert os.path.exists(json_file)
+            with open(json_file) as json:
+                data = js.load(json)
+        elif secret_data is not None:
+            data = secret_data
         if isinstance(scopes, str):
             scopes = [scopes]
-        with open(json_file) as json:
-            data = js.load(json)
         if "installed" in data:
-
             data = data["installed"]
         if "redirect_uris" in data:
             data["redirect_uri"] = [uri for uri in data["redirect_uris"] if "oob" in uri][0]
@@ -198,7 +236,8 @@ class Requests:
         assert(all([item in data for item in keys]))
         self.scopes = scopes
         self.secret_file = json_file
-        self.secrets = data
+        self._password = str(uuid4().hex)
+        self.secrets = encode(self._password, js.dumps(data))
         if token is None:
             token = os.path.join(LOCALPATH, data["client_id"])
         self.token = token

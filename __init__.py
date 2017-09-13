@@ -14,6 +14,7 @@ import webbrowser
 import dbm
 import base64
 import tempfile
+import subprocess
 from comtypes import COMError
 from functools import partial
 from html.parser import HTMLParser
@@ -276,9 +277,12 @@ class Requests:
                 if name.startswith("Success ") and "hd=transcom.com" in name:
                     opened.append(name)
             win32gui.EnumWindows(get_opened, opened)
-
-            webbrowser.open_new("{}?{}".format(data["auth_uri"], "&".join(
-                        ["=".join((key, auth_data[key].replace(" ", "%20"))) for key in auth_data])))
+            subprocess.run("C:\Program Files (x86)\Google\Chrome\Application\chrome.exe --app={}".format(
+                    "{}?{}".format(data["auth_uri"], "&".join(
+                            ["=".join((key, auth_data[key].replace(" ", "%20"))) for key in auth_data]))
+                    ))
+            #webbrowser.open_new("{}?{}".format(data["auth_uri"], "&".join(
+            #            ["=".join((key, auth_data[key].replace(" ", "%20"))) for key in auth_data])))
             received = dict()
             def receive(handle, received):
                 name = win32gui.GetWindowText(handle)

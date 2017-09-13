@@ -13,6 +13,7 @@ import win32gui
 import webbrowser
 import dbm
 import base64
+import tempfile
 from comtypes import COMError
 from functools import partial
 from html.parser import HTMLParser
@@ -45,6 +46,7 @@ def decode(key, enc):
 class NotAuthorised(Exception):
     pass
 
+
 class Requests:
     def __init__(self):
         self.proxy = urllib.request.getproxies()["http"]
@@ -65,6 +67,10 @@ class Requests:
         self._0901d825037f4543be307f59f90f2a68 = None
         self.openidtoken = None
         self.uuid = None
+        self._tempfolder = tempfile.TemporaryDirectory(prefix="zashel_winhttp_")
+
+    def __del__(self):
+        self.tempfolder.close()
 
     @property
     def headers(self):
@@ -131,6 +137,10 @@ class Requests:
     @secrets.setter
     def secrets(self, value):
         object.__setattr__(self, "_a94c279b0e1a4c55a0e5d27252a35187", value)
+
+    @property
+    def tempfolder(self):
+        return self._tempfolder
 
     def request(self, method, url, *, data=None, json=None, headers=None, get=None):
         requested = ([method, url], {"data": data, "json": json, "headers": headers, "get": get})
@@ -239,6 +249,7 @@ class Requests:
         if "redirect_uris" in data:
             data["redirect_uri"] = [uri for uri in data["redirect_uris"] if "oob" in uri][0]
             data["redirect_uri"] = data["redirect_uri"]+":auto"
+        scopes = list(scopes)
         keys = ["client_id", "project_id", "auth_uri", "token_uri", "auth_provider_x509_cert_url", "client_secret"]
         assert(all([item in data for item in keys]))
         self.scopes = scopes
@@ -266,8 +277,8 @@ class Requests:
                     opened.append(name)
             win32gui.EnumWindows(get_opened, opened)
 
-            webbrowser.open("{}?{}".format(data["auth_uri"], "&".join(
-                        ["=".join((key, auth_data[key].replace(" ", "%20"))) for key in auth_data])), 2)
+            webbrowser.open_new("{}?{}".format(data["auth_uri"], "&".join(
+                        ["=".join((key, auth_data[key].replace(" ", "%20"))) for key in auth_data])))
             received = dict()
             def receive(handle, received):
                 name = win32gui.GetWindowText(handle)

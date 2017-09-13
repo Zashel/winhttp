@@ -71,7 +71,7 @@ class Requests:
         self._tempfolder = tempfile.TemporaryDirectory(prefix="zashel_winhttp_")
 
     def __del__(self):
-        self.tempfolder.close()
+        self.tempfolder.cleanup()
 
     @property
     def headers(self):

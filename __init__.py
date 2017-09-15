@@ -10,7 +10,6 @@ import random
 import shelve
 import time
 import win32gui
-import webbrowser
 import dbm
 import base64
 import tempfile

@@ -68,6 +68,7 @@ class Requests:
         self.openidtoken = None
         self.uuid = None
         self._tempfolder = tempfile.TemporaryDirectory(prefix="zashel_winhttp_")
+        self.secret_data = None
 
     def __del__(self):
         self.tempfolder.cleanup()
@@ -143,6 +144,7 @@ class Requests:
         return self._tempfolder
 
     def request(self, method, url, *, data=None, json=None, headers=None, get=None):
+        print(data)
         requested = ([method, url], {"data": data, "json": json, "headers": headers, "get": get})
         if get is None:
             get = dict()
@@ -185,15 +187,17 @@ class Requests:
                 self._req.SetRequestHeader(key, headers[key])
         if json is not None:
             json = js.dumps(json)
-            self._req.SetRequestHeader("Content-type", "application/json;charset=utf-8")
+            self._req.SetRequestHeader("Content-Type", "application/json;charset=utf-8")
             self._req.send(str(json))
         elif data is not None:
+            print(data)
             if isinstance(data, dict):
                 #data = urllib.parse.urlencode(data)
-                final = "&".join(["=".join([key, html.escape(data[key])]) for key in data])
+                final = "&".join(["=".join([key, html.escape(str(data[key]))]) for key in data])
                 data = final
             if headers is None or (headers is not None and not "Content-type" in headers):
                 self._req.SetRequestHeader("Content-type", "application/x-www-form-urlencoded;charset=utf-8")
+                print("Header setted")
             self._req.send(str(data))
         else:
             self._req.send()
@@ -209,7 +213,7 @@ class Requests:
         except KeyError:
             if os.path.exists(self.token):
                 os.remove(self.token)
-            ok = self.oauth2(self.scopes, self.secret_file)
+            ok = self.oauth2(self.scopes, secret_data=self.secret_data)
             if ok is not None:
                 self.request(*requested[0], **requested[1])
                 return
@@ -231,11 +235,12 @@ class Requests:
             if ok is not None:
                 return self.request(*requested[0], **requested[1])
         else:
-            return js.loads(self.text)
+            return self.text
         if os.path.exists(self.token):
             os.remove(self.token)
 
     def oauth2(self, scopes, *, json_file=None, token=None, secret_data=None):
+        print("oauth")
         if json_file is not None:
             assert os.path.exists(json_file)
             with open(json_file) as json:
@@ -254,6 +259,7 @@ class Requests:
         assert(all([item in data for item in keys]))
         self.scopes = scopes
         self.secret_file = json_file
+        self.secret_data = secret_data
         self._9f84809956a94ec185202d2d0caf7923 = str(uuid4().hex)
         self.secrets = encode(self._9f84809956a94ec185202d2d0caf7923, js.dumps(data))
         if token is None:
@@ -264,7 +270,7 @@ class Requests:
             self.nonce = ''.join([str(random.randint(0, 9)) for i in range(8)])
             auth_data = {"response_type":"code",
                          "client_id": data["client_id"],
-                         "scope": " ".join(["openid", "email"]+scopes),
+                         "scope": " ".join(["https://www.googleapis.com/auth/plus.me", "email"]+scopes),
                          "redirect_uri":data["redirect_uri"],
                          "state": self.state,
                          "nonce": self.nonce,
@@ -273,7 +279,7 @@ class Requests:
             opened = list()
             def get_opened(handle, opened):
                 name = win32gui.GetWindowText(handle)
-                if name.startswith("Success ") and "hd=transcom.com" in name:
+                if name.startswith("Success "):
                     opened.append(name)
             win32gui.EnumWindows(get_opened, opened)
             subprocess.run("C:\Program Files (x86)\Google\Chrome\Application\chrome.exe --app={}".format(
@@ -285,7 +291,7 @@ class Requests:
             received = dict()
             def receive(handle, received):
                 name = win32gui.GetWindowText(handle)
-                if name not in opened and name.startswith("Success ") and "hd=transcom.com" in name:
+                if name not in opened and name.startswith("Success "):
                     received.update(urllib.parse.parse_qs(name.split(" ")[1]))
                     for key in received:
                         received[key] = received[key][0]
@@ -293,12 +299,14 @@ class Requests:
                 win32gui.EnumWindows(receive, received)
                 time.sleep(0.5)
             if received["state"] == self.state:
+                print(received["state"])
                 self.post(data["token_uri"], data={"code": received["code"],
                                                    "client_id": data["client_id"],
                                                    "client_secret": data["client_secret"],
                                                    "redirect_uri": data["redirect_uri"],
                                                    "grant_type": "authorization_code"})
                 token_data = js.loads(self.text)
+                print(token_data)
                 shelf = shelve.open(self.token)
                 shelf.update(token_data)
                 shelf.close()

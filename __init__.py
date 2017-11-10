@@ -144,7 +144,6 @@ class Requests:
         return self._tempfolder
 
     def request(self, method, url, *, data=None, json=None, headers=None, get=None):
-        print(data)
         requested = ([method, url], {"data": data, "json": json, "headers": headers, "get": get})
         if get is None:
             get = dict()
@@ -190,14 +189,12 @@ class Requests:
             self._req.SetRequestHeader("Content-Type", "application/json;charset=utf-8")
             self._req.send(str(json))
         elif data is not None:
-            print(data)
             if isinstance(data, dict):
                 #data = urllib.parse.urlencode(data)
                 final = "&".join(["=".join([key, html.escape(str(data[key]))]) for key in data])
                 data = final
             if headers is None or (headers is not None and not "Content-type" in headers):
                 self._req.SetRequestHeader("Content-type", "application/x-www-form-urlencoded;charset=utf-8")
-                print("Header setted")
             self._req.send(str(data))
         else:
             self._req.send()
@@ -240,7 +237,6 @@ class Requests:
             os.remove(self.token)
 
     def oauth2(self, scopes, *, json_file=None, token=None, secret_data=None):
-        print("oauth")
         if json_file is not None:
             assert os.path.exists(json_file)
             with open(json_file) as json:
@@ -299,14 +295,12 @@ class Requests:
                 win32gui.EnumWindows(receive, received)
                 time.sleep(0.5)
             if received["state"] == self.state:
-                print(received["state"])
                 self.post(data["token_uri"], data={"code": received["code"],
                                                    "client_id": data["client_id"],
                                                    "client_secret": data["client_secret"],
                                                    "redirect_uri": data["redirect_uri"],
                                                    "grant_type": "authorization_code"})
                 token_data = js.loads(self.text)
-                print(token_data)
                 shelf = shelve.open(self.token)
                 shelf.update(token_data)
                 shelf.close()

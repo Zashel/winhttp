@@ -170,7 +170,12 @@ class Requests:
             elif not url.endswith("&") and not url.endswith("?"):
                 url = url + "&"
             url = url+urllib.parse.urlencode(get)
-        self._req.Open(method, url, False)
+        try:
+            self._req.Open(method, url, False)
+        except comtypes.COMError:
+            print("URL: "+url)
+            print("METHOD: "+method)
+            raise
         self._req.SetRequestHeader("User_Agent",
                                    "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.101 Safari/537.36")
         self._req.SetRequestHeader("Accept",
